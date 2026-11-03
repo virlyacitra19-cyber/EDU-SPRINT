@@ -20,18 +20,18 @@ canvas{display:block}
 #cnt{position:fixed;left:0;right:0;top:30%;text-align:center;font-size:clamp(80px,18vw,180px);color:#fff;font-weight:900;text-shadow:0 6px 0 #d1451f;pointer-events:none;z-index:2;opacity:0}
 #pb{background:#fff;color:var(--ink);border:0;border-radius:12px;padding:6px 12px;font:inherit;font-size:15px;cursor:pointer;margin-top:4px}
 #ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,30,70,.55);z-index:5;padding:12px;box-sizing:border-box}
-.card{background:var(--panel);color:var(--ink);border-radius:22px;padding:20px 24px;max-width:540px;width:100%;box-shadow:0 14px 44px rgba(0,0,0,.4);text-align:center;max-height:94%;overflow:auto;border-top:10px solid var(--acc);box-sizing:border-box}
+.card{pointer-events:auto;touch-action:pan-y;background:var(--panel);color:var(--ink);border-radius:22px;padding:20px 24px;max-width:540px;width:100%;box-shadow:0 14px 44px rgba(0,0,0,.4);text-align:center;max-height:94%;overflow:auto;border-top:10px solid var(--acc);box-sizing:border-box}
 .card h1{margin:0 0 4px;font-size:clamp(28px,6vw,42px);line-height:1}
 .card h2{margin:0 0 8px;font-size:24px}
 .card p{margin:6px 0}
-.btn{background:var(--acc);color:#fff;border:0;border-radius:14px;padding:12px 26px;font-family:inherit;font-weight:800;font-size:19px;cursor:pointer;box-shadow:0 4px 0 #b5520a;margin-top:10px}
+.btn{pointer-events:auto;touch-action:manipulation;background:var(--acc);color:#fff;border:0;border-radius:14px;padding:12px 26px;font-family:inherit;font-weight:800;font-size:19px;cursor:pointer;box-shadow:0 4px 0 #b5520a;margin-top:10px}
 .btn:active{transform:translateY(3px);box-shadow:0 1px 0 #b5520a}
 .opts{display:grid;gap:9px;margin:12px 0}
 .opt{background:#fff;color:var(--ink);border:3px solid #c9dcf2;border-radius:14px;padding:11px;font-family:inherit;font-size:18px;font-weight:700;cursor:pointer;text-align:left}
 .opt.ok{background:#c8f4d6;border-color:var(--ok)}.opt.bad{background:#ffd6d1;border-color:var(--bad)}
 .q{font-size:21px;font-weight:800;margin:8px 0}
 #fb{min-height:20px;font-weight:700}
-input{font-family:inherit;font-size:18px;padding:8px 12px;border-radius:10px;border:3px solid #c9dcf2;width:70%;text-align:center;color:var(--ink)}
+textarea{font-family:inherit;font-size:16px;padding:8px 12px;border-radius:10px;border:3px solid #c9dcf2;width:70%;text-align:left;color:var(--ink);background:#fff;touch-action:pan-y;user-select:text;-webkit-user-select:text}\ninput{font-family:inherit;font-size:18px;padding:8px 12px;border-radius:10px;border:3px solid #c9dcf2;width:70%;text-align:center;color:var(--ink)}
 ol{text-align:left;margin:6px auto;padding-left:34px;max-width:300px;font-weight:700}
 li.me{color:var(--acc)}
 .small{font-size:14px;opacity:.8}
@@ -158,10 +158,6 @@ function build(){items.forEach(i=>S.remove(i.m));items.length=0;
 /* ===== Game state ===== */
 let st='menu',dist=0,lane=1,px=0,py=0,vy=0,score=0,coins=0,combo=0,mult=1,shield=false,energy=100,boost=0,inv=0,stum=0,speed=0,time=0,cpIdx=0,correct=0,cd=-1,fdelay=0,rank=1,fin={},gt=0,cf=0,tSpr=false,pname="Pelari",qs=[],cur=null,shown=false,tt;
 const keys={};
-function lbGet(){try{const a=JSON.parse(localStorage.getItem('edusprintLB'));if(a&&a.length)return a}catch(e){}return[{n:"Coach Rina",s:2200},{n:"Budi",s:1700},{n:"Sari",s:1300}]}
-let board=lbGet();
-function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
-function lbHtml(me){return"<ol>"+board.slice(0,5).map(e=>"<li"+(e===me?' class="me"':'')+">"+esc(e.n)+" - "+e.s+"</li>").join("")+"</ol>"}
 function toast(t){const m=$('msg');m.textContent=t;m.style.opacity=1;clearTimeout(tt);tt=setTimeout(()=>m.style.opacity=0,1000)}
 const bar=$('bar');
 const dots=['#ff7a1a','#2fbf6a','#3b8eea'].map(c=>{const d=document.createElement('i');d.className='dot';d.style.background=c;bar.appendChild(d);return d});
@@ -294,32 +290,32 @@ function teacherMenu(){
   $('gameCode').value=code;
   $('copyCode').onclick=async()=>{try{await navigator.clipboard.writeText(code);say('Kode berhasil disalin.');}catch(e){$('gameCode').focus();$('gameCode').select();say('Pilih dan salin kode secara manual.')}};
  };
- $('makeCode').onclick=()=>{
+ $('makeCode').addEventListener('click',()=>{
   const t=$('fmat').value.trim(),f={mapel:"Umum",jenjang:"Sesuai materi",topik:"Materi pelajaran",tujuan:"Memahami materi",n:30,mat:t,code:""};
   if(t.length<40){say('Tempel materi terlebih dahulu (minimal 40 karakter).');return}
   const list=genMateri(t,30);
   if(list.length<5){say('Materi belum cukup menghasilkan 5 soal valid. Tambahkan materi atau gunakan input soal manual.');return}
   f.n=list.length;showCode(list,f);say(list.length+' soal berhasil dibuat.');
- };
- $('manualCode').onclick=()=>{
+ });
+ $('manualCode').addEventListener('click',()=>{
   const f={mapel:"Umum",jenjang:"Sesuai materi",topik:"Soal dari guru",tujuan:"Mengukur pemahaman",n:30,mat:"",code:""};
   const list=parseAny($('mq').value);
   if(list.length<5){say('Soal terbaca '+list.length+'. Minimal 5 soal dengan format yang benar.');return}
   f.n=Math.min(30,list.length);showCode(list.slice(0,30),f);say(f.n+' soal siap dibagikan.');
- };
- $('backHome').onclick=menu;
+ });
+ $('backHome').addEventListener('click',menu);
 }
 function studentMenu(){
  const o=$('ov');o.style.display='flex';
  o.innerHTML='<div class="card"><h1>MODE SISWA</h1><p>Masukkan kode permainan dari guru dan nama kamu.</p><div class="frm"><label>Kode permainan<textarea id="studentCode" rows="5" placeholder="Tempel kode permainan dari guru di sini"></textarea></label><label>Nama siswa<input id="studentName" maxlength="12" placeholder="Nama kamu"></label></div><button class="btn" id="joinGame">Mulai Bermain</button><div id="gs" class="small" style="min-height:24px"></div><button class="btn" id="backHome" style="background:#3b73d6;box-shadow:0 4px 0 #1f4a99">Kembali</button></div>';
- $('joinGame').onclick=()=>{
+ $('joinGame').addEventListener('click',()=>{
   const p=decodeGameCode($('studentCode').value);
   if(!p){say('Kode tidak valid. Periksa kembali kode dari guru.');return}
   pname=($('studentName').value.trim()||'Pelari').slice(0,12);
   const f={mapel:p.setup.mapel||'Umum',jenjang:'Siswa',topik:p.setup.topik||'Materi',tujuan:'',n:p.questions.length,mat:'',code:''};
   startWith(p.questions,f);
- };
- $('backHome').onclick=menu;
+ });
+ $('backHome').addEventListener('click',menu);
 }
 function begin(snap){reset();for(const k in keys)keys[k]=false;tSpr=false;$('ov').style.display='none';st='count';cd=3.4;if(snap===true){cam.position.set(0,3.4,7.2);cam.fov=62;cam.updateProjectionMatrix()}}
 function reset(){dist=0;lane=1;px=0;py=0;vy=0;score=0;coins=0;combo=0;mult=1;shield=false;energy=100;boost=0;inv=0;stum=0;speed=0;time=0;cpIdx=0;correct=0;shown=false;
@@ -334,8 +330,8 @@ function answer(i){if(!cur||cur.done)return;cur.done=true;const bs=document.quer
  $('ct').onclick=()=>{cur=null;$('ov').style.display='none';cpIdx++;inv=1;st='run'}}
 function finish(){st='finish';fdelay=1.8;rank=1+opps.filter(o=>o.d>=FIN).length;
  fin={tb:Math.max(0,Math.round((FIN/9-time)*8)),pb:[600,300,100][rank-1]};score+=fin.tb+fin.pb}
-function showFinish(){shown=true;const me={n:pname,s:score};board.push(me);board.sort((a,b)=>b.s-a.s);board=board.slice(0,8);try{localStorage.setItem('edusprintLB',JSON.stringify(board))}catch(e){}
- $('ov').style.display='flex';$('ov').innerHTML='<div class="card"><h1>'+['Juara 1!','Balapan hebat!','Terus berlatih!'][rank-1]+'</h1><h2>Kamu finis di posisi '+rank+'</h2><div class="small">'+esc(setup.mapel)+' - '+esc(setup.topik)+'</div><table><tr><td>Waktu</td><td>'+time.toFixed(1)+' detik</td></tr><tr><td>Koin</td><td>'+coins+'</td></tr><tr><td>Jawaban benar</td><td>'+correct+' / '+CP.length+'</td></tr><tr><td>Bonus waktu</td><td>+'+fin.tb+'</td></tr><tr><td>Bonus posisi</td><td>+'+fin.pb+'</td></tr><tr><td>Skor akhir</td><td>'+score+'</td></tr></table><b>Papan peringkat</b>'+lbHtml(me)+'<button class="btn" id="ra">Main lagi</button> <button class="btn" id="mn" style="background:#3b73d6;box-shadow:0 4px 0 #1f4a99">Ubah soal</button></div>';
+function showFinish(){shown=true;
+ $('ov').style.display='flex';$('ov').innerHTML='<div class="card"><h1>Permainan Selesai!</h1><p class="small">'+esc(setup.mapel)+' - '+esc(setup.topik)+'</p><h2>SKOR AKHIR</h2><div style="font-size:clamp(42px,10vw,68px);font-weight:900;color:var(--acc);margin:12px 0">'+score.toLocaleString('id-ID')+'</div><p>Hebat! Terus tingkatkan hasil belajarmu.</p><button class="btn" id="ra">Main Lagi</button> <button class="btn" id="mn" style="background:#3b73d6;box-shadow:0 4px 0 #1f4a99">Kembali ke Menu</button></div>';
  $('ra').onclick=()=>begin(true);$('mn').onclick=()=>{reset();menu()}}
 function togglePause(){if(st==='run'){st='pause';$('ov').style.display='flex';$('ov').innerHTML='<div class="card"><h1>Jeda</h1><button class="btn" id="rs">Lanjutkan</button></div>';$('rs').onclick=togglePause}
  else if(st==='pause'){st='run';$('ov').style.display='none'}}
