@@ -283,7 +283,7 @@ function form(loose){const f={mapel:"Umum",jenjang:"Sesuai pengguna",topik:"Mate
 function startWith(list,f){setup=f;try{localStorage.setItem('edusprintSetup',JSON.stringify(f))}catch(e){}CFG.questions=list;setCP(list.length);begin()}
 function encodeGameCode(list,f){
  const payload={v:1,setup:{mapel:f.mapel||"Umum",topik:f.topik||"Materi"},questions:list};
- return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+ return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 function decodeGameCode(code){
  try{
