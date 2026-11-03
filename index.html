@@ -63,6 +63,7 @@ const CFG={length:720,questions:[
 window.EDUSPRINT={config:CFG,setQuestions:q=>{CFG.questions=q}};
 
 const $=id=>document.getElementById(id),MAXL=1900,CP=[],L=[-2.4,0,2.4];let FIN=720;
+const esc=value=>String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const R=new THREE.WebGLRenderer({antialias:true});R.setPixelRatio(Math.min(devicePixelRatio,2));
 R.shadowMap.enabled=true;R.shadowMap.type=THREE.PCFSoftShadowMap;document.body.prepend(R.domElement);
 const S=new THREE.Scene();S.background=new THREE.Color(0x8fd3ff);S.fog=new THREE.Fog(0xcfeaff,80,250);
