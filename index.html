@@ -200,13 +200,13 @@ function genCloze(text,n){
  const res=[];
  info.forEach(x=>{const a=x.cs.slice().sort((p,q)=>q.sc-p.sc)[0],inS=new Set(x.ws.map(w=>w.toLowerCase()));let wr=[];
   if(a.k==='num'){const v=parseFloat(a.w.replace(/[.,]/g,''));wr=[...pool.num].filter(w=>w!==a.w&&!inS.has(w));
-   if(wr.length<3&&isFinite(v)&&/^\d+$/.test(a.w)){const st=v>=1000?[1,2,5,10]:v>=100?[10,20,50,100]:[1,2,3,5,10];st.forEach(d=>{wr.push(String(v+d));if(v-d>0)wr.push(String(v-d))})}
+   
    wr=shuf([...new Set(wr)].filter(w=>w!==a.w))}
   else{wr=[...pool[a.k]].filter(w=>w.toLowerCase()!==a.w.toLowerCase()&&!inS.has(w.toLowerCase()));if(a.k==='term')wr.sort((p,q)=>Math.abs(p.length-a.w.length)-Math.abs(q.length-a.w.length)),wr=shuf(wr.slice(0,10));else wr=shuf(wr)}
   if(wr.length<3)return;
   const re=new RegExp('(^|[^\\p{L}\\p{N}])'+a.w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\\p{L}\\p{N}])','u');
   res.push(mkQ('Lengkapi kalimat: "'+x.s.replace(re,(m,p)=>p+'_____')+'"',a.w,wr,'Kalimat lengkap: "'+x.s+'"'))});
- if(res.length<=n)return res;const pick=[];for(let i=0;i<n;i++)pick.push(res[Math.floor(i*res.length/n)]);return pick}
+ if(res.length<=n)return res;const pick=[];for(let i=0;i<n;i++){const item=res[Math.floor(i*res.length/n)];if(!pick.some(x=>x.q===item.q))pick.push(item)}return pick}
 function genMateri(t,n){const g=parseGloss(t);return(g?genGloss(g,n):genCloze(t,n)).filter(ok4)}
 /* ===== Generator AI: server Vercel (Gemini) lebih dulu, Claude sebagai cadangan ===== */
 async function srvStatus(){try{const r=await fetch('/api/generate',{cache:'no-store'});if(!r.ok)return null;const j=await r.json();return j&&typeof j.ok==='boolean'?j:null}catch(e){return null}}
@@ -265,31 +265,15 @@ function extPrompt(f){return "Kamu adalah guru ahli penyusun soal. Buat "+f.n+" 
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function getSample(){for(let i=0;i<30&&!window.claude;i++)await wait(100);if(!window.claude)return null;try{return await window.claude.use("sample")}catch(e){return null}}
 function jsonFrom(t){t=String(t||"").replace(/```json|```/gi,'');const a=t.indexOf('['),b=t.lastIndexOf(']');if(a>=0&&b>a){try{return JSON.parse(t.slice(a,b+1))}catch(e){}}const c=t.indexOf('{'),d=t.lastIndexOf('}');if(c>=0&&d>c){try{const o=JSON.parse(t.slice(c,d+1));return o.soal||o.questions||[]}catch(e){}}return[]}
-function form(loose){const f={mapel:$('fm').value.trim(),jenjang:$('fj').value.trim(),topik:$('ft').value.trim(),tujuan:$('fg').value.trim(),n:Math.max(10,Math.min(30,Math.round(+$('fn').value)||10)),mat:$('fmat').value.slice(0,20000),code:$('fcode').value.trim().slice(0,60)};pname=($('nm').value.trim()||"Pelari").slice(0,12);
- if(!loose&&(!f.mapel||!f.jenjang||!f.topik||!f.tujuan)){say("Isi mata pelajaran, jenjang/kelas, topik, dan tujuan pembelajaran dulu.");return null}
- if(!f.mapel)f.mapel="Umum";if(!f.topik)f.topik="Latihan";return f}
+function form(loose){const f={mapel:"Umum",jenjang:"Sesuai pengguna",topik:"Materi yang dipelajari",tujuan:"Memahami isi materi",n:10,mat:$('fmat').value.slice(0,20000),code:""};pname=($('nm').value.trim()||"Pelari").slice(0,12);return f}
 function startWith(list,f){setup=f;try{localStorage.setItem('edusprintSetup',JSON.stringify(f))}catch(e){}CFG.questions=list;setCP(list.length);begin()}
 /* ---- Alur game ---- */
 function menu(){st='menu';const o=$('ov');o.style.display='flex';
- o.innerHTML='<div class="card"><h1>EDU SPRINT</h1><h2>Race to Knowledge</h2><div class="frm">'+
- '<label>Mata pelajaran<input id="fm" list="dl" maxlength="40" placeholder="mis. Matematika, IPA, Bahasa Indonesia"></label><datalist id="dl">'+["Matematika","IPA","IPS","Bahasa Indonesia","Bahasa Inggris","PPKn","Informatika","Seni Budaya","PJOK","Fisika","Kimia","Biologi","Sejarah","Geografi","Ekonomi","Sosiologi"].map(x=>'<option value="'+x+'">').join('')+'</datalist>'+
- '<label>Jenjang dan kelas<input id="fj" list="dj" maxlength="40" placeholder="mis. SD Kelas 4, SMP Kelas 8, atau tulis sendiri"></label><datalist id="dj">'+JEN.map(x=>'<option value="'+x+'">').join('')+'</datalist>'+
- '<label>Topik<input id="ft" maxlength="80" placeholder="mis. Pecahan senilai"></label>'+
- '<label>Tujuan pembelajaran<textarea id="fg" rows="3" maxlength="300" placeholder="mis. Peserta didik dapat menentukan pecahan senilai dan membandingkan dua pecahan."></textarea></label>'+
- '<label>Jumlah soal (minimal 10, maksimal 30)<input id="fn" type="number" min="10" max="30" step="1" inputmode="numeric"></label>'+
- '<label>Nama pelari<input id="nm" maxlength="12" placeholder="Nama kamu"></label></div>'+
- '<div class="frm"><label>Materi atau daftar istilah (untuk generator otomatis tanpa akun)<textarea id="fmat" rows="4" placeholder="Tempel materi/bacaan (min. 5 kalimat), ATAU tulis daftar istilah satu per baris, mis.&#10;Fotosintesis: proses tumbuhan membuat makanan dengan cahaya&#10;Klorofil: zat hijau daun penangkap cahaya"></textarea></label><label id="lcode" style="display:none">Kode akses guru (diminta oleh server)<input id="fcode" type="password" maxlength="60" autocomplete="off"></label></div>'+
- '<button class="btn" id="gen">Buat soal dengan AI dan mulai</button><button class="btn" id="mt" style="background:#3b73d6;box-shadow:0 4px 0 #1f4a99">Buat soal dari materi dan mulai</button><div id="sv" class="small" style="min-height:16px"></div><div id="gs" class="small" style="min-height:20px"></div>'+
- '<details><summary>Opsi lain: soal offline, manual, atau AI lain</summary><button class="btn" id="cp" style="font-size:15px;padding:8px 14px">Salin perintah untuk AI lain</button><div class="frm"><textarea id="pp" rows="4" readonly style="display:none;font-size:12px"></textarea></div><p class="small">Tempel perintah ke AI apa pun, lalu tempel hasilnya di kotak soal manual di bawah.</p><p class="small">Generator offline hanya membuat soal hitungan Matematika sesuai jenjang.</p><button class="btn" id="off" style="font-size:15px;padding:8px 14px">Mulai dengan soal hitungan offline</button><p class="small">Tempel minimal 10 soal. Pisahkan antarsoal dengan satu baris kosong: pertanyaan, opsi A-D, lalu baris "Jawaban: B" dan "Pembahasan: ...".</p><div class="frm"><textarea id="mq" rows="6"></textarea></div><button class="btn" id="man" style="font-size:15px;padding:8px 14px">Mulai dengan soal manual</button></details>'+
- '<b>Papan peringkat</b>'+lbHtml()+'<p class="small">A/D atau panah: pindah jalur. Spasi atau Atas: lompat. Shift: lari cepat. P: jeda. 1-4: jawab kuis.</p></div>';
- $('fm').value=setup.mapel;$('fj').value=setup.jenjang;$('ft').value=setup.topik;$('fg').value=setup.tujuan;$('fn').value=setup.n;$('fmat').value=setup.mat||'';$('fcode').value=setup.code||'';$('nm').value=pname==="Pelari"?"":pname;
- $('gen').onclick=genAI;
- srvStatus().then(st=>{const e=$('sv');if(!e)return;if(st&&st.ok){e.textContent="Generator AI server aktif ("+(st.model||"Gemini")+")";if(st.needCode)$('lcode').style.display='block'}else e.textContent=st?"Server ditemukan, tetapi GEMINI_API_KEY belum diatur di Vercel.":"Generator AI server belum aktif (opsional, lihat README). Generator dari materi tetap bisa dipakai."});
- $('mt').onclick=()=>{const f=form(true),t=$('fmat').value.trim();if(t.length<60){say("Tempel materi dulu (minimal beberapa kalimat), atau tulis daftar istilah: Istilah: pengertian.");return}
-  const l=genMateri(t,f.n);if(l.length<5){say("Materi belum cukup untuk minimal 5 soal. Tulis minimal 6 kalimat, atau minimal 5 baris dengan format Istilah: pengertian.");return}
+ o.innerHTML='<div class="card"><h1>EDU SPRINT</h1><h2>Race to Knowledge</h2><p class="small">Tempel materi pelajaran, lalu EDU SPRINT menyusun kuis dari informasi yang tersedia.</p><div class="frm"><label>Materi pelajaran<textarea id="fmat" rows="7" maxlength="20000" placeholder="Tempel materi berupa paragraf, ringkasan, poin-poin, atau daftar istilah beserta pengertiannya. Semakin lengkap materi, semakin banyak soal yang dapat dibuat."></textarea></label><label>Nama pelari<input id="nm" maxlength="12" placeholder="Nama kamu"></label></div><button class="btn" id="mt">Buat Soal dan Mulai Bermain</button><div id="gs" class="small" style="min-height:24px"></div><details><summary>Masukkan soal sendiri (opsional)</summary><p class="small">Tempel minimal 10 soal. Pisahkan antarsoal dengan satu baris kosong: pertanyaan, opsi A-D, lalu baris Jawaban: B dan Pembahasan: ...</p><div class="frm"><textarea id="mq" rows="7" placeholder="1. Pertanyaan ...&#10;A. ...&#10;B. ...&#10;C. ...&#10;D. ...&#10;Jawaban: B&#10;Pembahasan: ..."></textarea></div><button class="btn" id="man" style="font-size:15px;padding:8px 14px">Mulai dengan soal manual</button></details><b>Papan peringkat</b>'+lbHtml()+'<p class="small">A/D atau panah: pindah jalur. Spasi atau Atas: lompat. Shift: lari cepat. P: jeda. 1-4: jawab kuis.</p></div>';
+ $('fmat').value=setup.mat||'';$('nm').value=pname==="Pelari"?"":pname;
+ $('mt').onclick=()=>{const f=form(true),t=$('fmat').value.trim();if(t.length<40){say("Tempel materi terlebih dahulu (minimal 40 karakter).");return}
+  const l=genMateri(t,30);if(l.length<5){say("Materi belum cukup untuk membuat minimal 5 soal pilihan ganda yang valid. Tambahkan beberapa paragraf atau daftar minimal 4 istilah beserta pengertiannya. Generator hanya memakai informasi dari materi.");return}
   f.n=l.length;startWith(l,f)};
- $('cp').onclick=()=>{const f=form(true);const t=extPrompt(f),p=$('pp');p.style.display='block';p.value=t;p.select();let ok=false;try{ok=document.execCommand('copy')}catch(e){}try{navigator.clipboard.writeText(t).catch(()=>{})}catch(e){}say("Perintah disalin"+(ok?"":" (jika belum, salin manual dari kotak)")+". Tempel ke AI lalu tempel hasilnya di soal manual.")};
- $('off').onclick=()=>{const f=form(true);f.mapel=f.mapel==="Umum"?"Matematika":f.mapel;startWith(genMath(f.n,lvOf(f.jenjang)),f)};
  $('man').onclick=()=>{const f=form(true),l=parseAny($('mq').value);if(!l.length){say("Soal tidak terbaca. Periksa formatnya.");return}if(l.length<10){say("Soal terbaca "+l.length+". Minimal 10 soal.");return}f.n=Math.min(30,l.length);startWith(l.slice(0,30),f)}}
 function begin(snap){reset();for(const k in keys)keys[k]=false;tSpr=false;$('ov').style.display='none';st='count';cd=3.4;if(snap===true){cam.position.set(0,3.4,7.2);cam.fov=62;cam.updateProjectionMatrix()}}
 function reset(){dist=0;lane=1;px=0;py=0;vy=0;score=0;coins=0;combo=0;mult=1;shield=false;energy=100;boost=0;inv=0;stum=0;speed=0;time=0;cpIdx=0;correct=0;shown=false;
