@@ -203,7 +203,25 @@ function genCloze(text,n){
   const re=new RegExp('(^|[^\\p{L}\\p{N}])'+a.w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![\\p{L}\\p{N}])','u');
   res.push(mkQ('Lengkapi kalimat: "'+x.s.replace(re,(m,p)=>p+'_____')+'"',a.w,wr,'Kalimat lengkap: "'+x.s+'"'))});
  if(res.length<=n)return res;const pick=[];for(let i=0;i<n;i++){const item=res[Math.floor(i*res.length/n)];if(!pick.some(x=>x.q===item.q))pick.push(item)}return pick}
-function genMateri(t,n){const g=parseGloss(t);return(g?genGloss(g,n):genCloze(t,n)).filter(ok4)}
+function genMateri(t,n){
+ const g=parseGloss(t);
+ let out=(g?genGloss(g,n):genCloze(t,n)).filter(ok4);
+ if(out.length>=5)return out.slice(0,n);
+ // Fallback untuk materi berbentuk paragraf: buat soal pemahaman berbasis kalimat yang benar-benar ada di materi.
+ const sentences=(t.replace(/\\s+/g,' ').match(/[^.!?]+[.!?]+/g)||[])
+  .map(x=>x.trim()).filter(x=>x.length>=35&&x.length<=220);
+ const unique=[...new Set(sentences)];
+ if(unique.length>=5){
+  const chosen=unique.slice(0,n);
+  out=chosen.map((sentence,i)=>{
+   const wrong=shuf(unique.filter(x=>x!==sentence)).slice(0,3);
+   if(wrong.length<3)return null;
+   return mkQ('Pernyataan manakah yang sesuai dengan materi?',sentence,wrong,
+    'Pernyataan ini sesuai dengan isi materi yang diberikan.');
+  }).filter(ok4);
+ }
+ return out.slice(0,n);
+}
 /* ===== Generator AI: server Vercel (Gemini) lebih dulu, Claude sebagai cadangan ===== */
 async function srvStatus(){try{const r=await fetch('/api/generate',{cache:'no-store'});if(!r.ok)return null;const j=await r.json();return j&&typeof j.ok==='boolean'?j:null}catch(e){return null}}
 async function srvBatch(f,need,list){const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),55000);
@@ -291,11 +309,17 @@ function teacherMenu(){
   $('copyCode').onclick=async()=>{try{await navigator.clipboard.writeText(code);say('Kode berhasil disalin.');}catch(e){$('gameCode').focus();$('gameCode').select();say('Pilih dan salin kode secara manual.')}};
  };
  $('makeCode').addEventListener('click',()=>{
-  const t=$('fmat').value.trim(),f={mapel:"Umum",jenjang:"Sesuai materi",topik:"Materi pelajaran",tujuan:"Memahami materi",n:30,mat:t,code:""};
-  if(t.length<40){say('Tempel materi terlebih dahulu (minimal 40 karakter).');return}
-  const list=genMateri(t,30);
-  if(list.length<5){say('Materi belum cukup menghasilkan 5 soal valid. Tambahkan materi atau gunakan input soal manual.');return}
-  f.n=list.length;showCode(list,f);say(list.length+' soal berhasil dibuat.');
+  const btn=$('makeCode');
+  try{
+   const t=$('fmat').value.trim(),f={mapel:"Umum",jenjang:"Sesuai materi",topik:"Materi pelajaran",tujuan:"Memahami materi",n:30,mat:t,code:""};
+   if(t.length<40){say('Silakan tempel materi minimal 40 karakter terlebih dahulu.');return}
+   btn.disabled=true;btn.textContent='Sedang membuat kode...';
+   const list=genMateri(t,30);
+   if(list.length<5){say('Belum cukup bahan untuk membuat 5 soal. Tambahkan minimal 5 kalimat penjelasan yang lengkap atau gunakan input soal manual.');return}
+   f.n=list.length;showCode(list,f);say('Berhasil! '+list.length+' soal siap dibagikan.');
+   $('shareArea').scrollIntoView({behavior:'smooth',block:'nearest'});
+  }catch(err){console.error('EDU SPRINT makeCode:',err);say('Terjadi kendala saat membuat kode. Periksa materi lalu coba lagi.')}
+  finally{btn.disabled=false;btn.textContent='Buat Kode Permainan'}
  });
  $('manualCode').addEventListener('click',()=>{
   const f={mapel:"Umum",jenjang:"Sesuai materi",topik:"Soal dari guru",tujuan:"Mengukur pemahaman",n:30,mat:"",code:""};
