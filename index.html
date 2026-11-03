@@ -353,23 +353,42 @@ function teacherMenu(){
 }
 function studentMenu(){
  const o=$('ov');o.style.display='flex';
- o.innerHTML='<div class="card"><h1>MODE SISWA</h1><p>Masukkan kode permainan dari guru dan nama kamu.</p><div class="frm"><label>Kode permainan<textarea id="studentCode" rows="5" placeholder="Tempel kode permainan dari guru di sini"></textarea></label><label>Nama siswa<input id="studentName" maxlength="12" placeholder="Nama kamu"></label></div><button class="btn" id="joinGame">Mulai Bermain</button><div id="gs" class="small" style="min-height:24px"></div><button class="btn" id="backHome" style="background:#3b73d6;box-shadow:0 4px 0 #1f4a99">Kembali</button></div>';
- $('joinGame').addEventListener('click',()=>{
-  const btn=$('joinGame');
-  if(btn.disabled)return;
-  btn.disabled=true;btn.textContent='Memeriksa kode...';say('');
+ o.innerHTML='<div class="card"><h1>MODE SISWA</h1><p>Tempel kode dari guru. Soal akan diperiksa dan ditampilkan dahulu sebelum permainan dimulai.</p><div class="frm"><label>Kode permainan<textarea id="studentCode" rows="5" placeholder="Tempel kode permainan dari guru di sini"></textarea></label><label>Nama siswa<input id="studentName" maxlength="12" placeholder="Nama kamu"></label></div><button class="btn" id="checkGame">Periksa Kode & Tampilkan Soal</button><div id="gs" class="small" style="min-height:24px"></div><div id="studentPreview"></div><button class="btn" id="backHome" style="background:#3b73d6;box-shadow:0 4px 0 #1f4a99">Kembali</button></div>';
+ let verifiedQuestions=null,verifiedSetup=null;
+ $('checkGame').addEventListener('click',()=>{
+  const btn=$('checkGame');if(btn.disabled)return;
+  btn.disabled=true;btn.textContent='Memeriksa...';say('');
   try{
-   const pasted=$('studentCode').value;
-   const p=decodeGameCode(pasted);
-   if(!p){say('Kode tidak terbaca. Pastikan seluruh kode dari guru ditempel utuh, tanpa teks tambahan.');return}
-   if(!Array.isArray(p.questions)||p.questions.length<5){say('Kode belum memuat minimal 5 soal. Minta guru membuat kode ulang.');return}
-   const questions=p.questions.map(q=>({q:q.q,options:q.options.slice(0,4),answer:q.answer,explain:q.explain||''}));
-   if(!questions.every(ok4)){say('Ada soal yang formatnya rusak. Minta guru membuat kode baru.');return}
-   pname=($('studentName').value.trim()||'Pelari').slice(0,12);
-   const f={mapel:String(p.setup.mapel||'Umum'),jenjang:'Siswa',topik:String(p.setup.topik||'Materi'),tujuan:'',n:questions.length,mat:'',code:''};
-   CFG.questions=questions;setup=f;setCP(questions.length);begin();
-  }catch(err){console.error('EDU SPRINT joinGame:',err);say('Kode tidak dapat diproses. Minta guru membuat dan membagikan kode baru.')}
-  finally{if($('joinGame')){$('joinGame').disabled=false;$('joinGame').textContent='Mulai Bermain'}}
+   const p=decodeGameCode($('studentCode').value);
+   if(!p||!Array.isArray(p.questions)||p.questions.length<5){
+    verifiedQuestions=null;$('studentPreview').innerHTML='';
+    say('Kode tidak valid. Minta guru membuat kode baru, lalu salin hanya isi kotak Kode Permainan.');
+    return;
+   }
+   const questions=p.questions.map(q=>({
+    q:String(q.q||'').trim(),
+    options:q.options.slice(0,4).map(v=>String(v).trim()),
+    answer:q.answer,
+    explain:String(q.explain||'')
+   }));
+   if(questions.length<5||!questions.every(ok4)||questions.some(q=>q.q.length>500||q.options.some(v=>v.length>200)||/^[A-Za-z0-9+/_=-]{100,}$/.test(q.q))){
+    verifiedQuestions=null;$('studentPreview').innerHTML='';
+    say('Isi soal dalam kode tidak terbaca sebagai soal pilihan ganda. Minta guru membuat kode baru.');
+    return;
+   }
+   verifiedQuestions=questions;
+   verifiedSetup={mapel:String(p.setup.mapel||'Umum'),jenjang:'Siswa',topik:String(p.setup.topik||'Materi'),tujuan:'',n:questions.length,mat:'',code:''};
+   const first=questions[0];
+   $('studentPreview').innerHTML='<div style="text-align:left;background:#fff;border:2px solid #c9dcf2;border-radius:12px;padding:12px;margin-top:12px"><b>Pratinjau soal 1 dari '+questions.length+'</b><p>'+esc(first.q)+'</p><ol type="A">'+first.options.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ol><p class="small">Jika soal di atas benar, tekan tombol Mulai Permainan.</p><button class="btn" id="startStudentGame">Mulai Permainan</button></div>';
+   say('Kode valid. '+questions.length+' soal berhasil dibaca.');
+   $('startStudentGame').onclick=()=>{
+    if(!verifiedQuestions||!verifiedQuestions.every(ok4)){say('Data soal tidak tersedia. Periksa kode kembali.');return}
+    pname=($('studentName').value.trim()||'Pelari').slice(0,12);
+    CFG.questions=verifiedQuestions.map(q=>({q:q.q,options:q.options.slice(),answer:q.answer,explain:q.explain}));
+    setup=verifiedSetup;setCP(CFG.questions.length);begin();
+   };
+  }catch(err){console.error('EDU SPRINT student validation:',err);verifiedQuestions=null;$('studentPreview').innerHTML='';say('Terjadi kesalahan saat membaca kode. Minta guru membuat kode baru.')}
+  finally{btn.disabled=false;btn.textContent='Periksa Kode & Tampilkan Soal'}
  });
  $('backHome').addEventListener('click',menu);
 }
