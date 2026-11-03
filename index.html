@@ -287,10 +287,20 @@ function encodeGameCode(list,f){
 }
 function decodeGameCode(code){
  try{
-  const b=code.trim().replace(/-/g,'+').replace(/_/g,'/'),raw=decodeURIComponent(escape(atob(b+'='.repeat((4-b.length%4)%4))));
+  const clean=String(code||'').replace(/\\s+/g,'').replace(/-/g,'+').replace(/_/g,'/');
+  if(!clean||!/^[A-Za-z0-9+/]*={0,2}$/.test(clean))return null;
+  const padded=clean.replace(/=+$/,'')+'='.repeat((4-clean.replace(/=+$/,'').length%4)%4);
+  const raw=decodeURIComponent(escape(atob(padded)));
   const p=JSON.parse(raw);
-  if(p.v!==1||!Array.isArray(p.questions)||p.questions.length<5||p.questions.length>30||!p.questions.every(ok4))return null;
-  return p;
+  if(!p||p.v!==1||!Array.isArray(p.questions)||p.questions.length<5||p.questions.length>30)return null;
+  const valid=p.questions.map(x=>({
+   q:String(x&&x.q||'').trim(),
+   options:Array.isArray(x&&x.options)?x.options.slice(0,4).map(v=>String(v??'').trim()):[],
+   answer:Number(x&&x.answer),
+   explain:String(x&&(x.explain||x.explanation)||'')
+  }));
+  if(!valid.every(ok4))return null;
+  return {v:1,setup:p.setup&&typeof p.setup==='object'?p.setup:{},questions:valid};
  }catch(e){return null}
 }
 function menu(){
@@ -333,11 +343,15 @@ function studentMenu(){
  const o=$('ov');o.style.display='flex';
  o.innerHTML='<div class="card"><h1>MODE SISWA</h1><p>Masukkan kode permainan dari guru dan nama kamu.</p><div class="frm"><label>Kode permainan<textarea id="studentCode" rows="5" placeholder="Tempel kode permainan dari guru di sini"></textarea></label><label>Nama siswa<input id="studentName" maxlength="12" placeholder="Nama kamu"></label></div><button class="btn" id="joinGame">Mulai Bermain</button><div id="gs" class="small" style="min-height:24px"></div><button class="btn" id="backHome" style="background:#3b73d6;box-shadow:0 4px 0 #1f4a99">Kembali</button></div>';
  $('joinGame').addEventListener('click',()=>{
-  const p=decodeGameCode($('studentCode').value);
-  if(!p){say('Kode tidak valid. Periksa kembali kode dari guru.');return}
-  pname=($('studentName').value.trim()||'Pelari').slice(0,12);
-  const f={mapel:p.setup.mapel||'Umum',jenjang:'Siswa',topik:p.setup.topik||'Materi',tujuan:'',n:p.questions.length,mat:'',code:''};
-  startWith(p.questions,f);
+  const btn=$('joinGame');
+  try{
+   const p=decodeGameCode($('studentCode').value);
+   if(!p){say('Kode tidak valid atau tidak lengkap. Salin ulang seluruh kode dari guru.');return}
+   if(!p.questions||p.questions.length<5){say('Kode belum memuat minimal 5 soal. Minta guru membuat kode ulang.');return}
+   pname=($('studentName').value.trim()||'Pelari').slice(0,12);
+   const f={mapel:String(p.setup.mapel||'Umum'),jenjang:'Siswa',topik:String(p.setup.topik||'Materi'),tujuan:'',n:p.questions.length,mat:'',code:''};
+   CFG.questions=p.questions;setup=f;setCP(p.questions.length);begin();
+  }catch(err){console.error('EDU SPRINT joinGame:',err);say('Kode tidak dapat diproses. Minta guru membuat dan membagikan kode baru.')}
  });
  $('backHome').addEventListener('click',menu);
 }
@@ -383,7 +397,7 @@ function update(dt){
  gt+=dt;if(++cf%3===0)crowdUpd(gt);
  if(st==='pause'||st==='quiz')return;
  const go=st==='run'||st==='finish',base=14+6*Math.min(1,dist/FIN);
- if(cd>-.7){cd-=dt;const n=Math.ceil(cd-.4);$('cnt').textContent=n>0?n:'MULAI!';$('cnt').style.opacity=cd>-.5?1:0;if(st==='count'&&cd<=.4)st='run'}
+ if(cd>-.7){cd-=dt;const n=Math.ceil(cd-.4);$('cnt').textContent=n>0?n:'MULAI!';$('cnt').style.opacity=cd>-.5?1:0;if(st==='count'&&cd<=.4){st='run';if(cpIdx===0&&!shown)openQuiz()}}
  if(go){let sp=base;const spr=st==='run'&&(keys.ShiftLeft||keys.ShiftRight||tSpr)&&energy>0;
   if(spr){sp*=1.3;energy=Math.max(0,energy-24*dt)}else energy=Math.min(100,energy+9*dt);
   if(boost>0){sp*=1.35;boost-=dt}if(stum>0){sp*=.5;stum-=dt}if(inv>0)inv-=dt;
