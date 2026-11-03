@@ -267,14 +267,60 @@ async function getSample(){for(let i=0;i<30&&!window.claude;i++)await wait(100);
 function jsonFrom(t){t=String(t||"").replace(/```json|```/gi,'');const a=t.indexOf('['),b=t.lastIndexOf(']');if(a>=0&&b>a){try{return JSON.parse(t.slice(a,b+1))}catch(e){}}const c=t.indexOf('{'),d=t.lastIndexOf('}');if(c>=0&&d>c){try{const o=JSON.parse(t.slice(c,d+1));return o.soal||o.questions||[]}catch(e){}}return[]}
 function form(loose){const f={mapel:"Umum",jenjang:"Sesuai pengguna",topik:"Materi yang dipelajari",tujuan:"Memahami isi materi",n:10,mat:$('fmat').value.slice(0,20000),code:""};pname=($('nm').value.trim()||"Pelari").slice(0,12);return f}
 function startWith(list,f){setup=f;try{localStorage.setItem('edusprintSetup',JSON.stringify(f))}catch(e){}CFG.questions=list;setCP(list.length);begin()}
-/* ---- Alur game ---- */
-function menu(){st='menu';const o=$('ov');o.style.display='flex';
- o.innerHTML='<div class="card"><h1>EDU SPRINT</h1><h2>Race to Knowledge</h2><p class="small">Tempel materi pelajaran, lalu EDU SPRINT menyusun kuis dari informasi yang tersedia.</p><div class="frm"><label>Materi pelajaran<textarea id="fmat" rows="7" maxlength="20000" placeholder="Tempel materi berupa paragraf, ringkasan, poin-poin, atau daftar istilah beserta pengertiannya. Semakin lengkap materi, semakin banyak soal yang dapat dibuat."></textarea></label><label>Nama pelari<input id="nm" maxlength="12" placeholder="Nama kamu"></label></div><button class="btn" id="mt">Buat Soal dan Mulai Bermain</button><div id="gs" class="small" style="min-height:24px"></div><details><summary>Masukkan soal sendiri (opsional)</summary><p class="small">Tempel minimal 10 soal. Pisahkan antarsoal dengan satu baris kosong: pertanyaan, opsi A-D, lalu baris Jawaban: B dan Pembahasan: ...</p><div class="frm"><textarea id="mq" rows="7" placeholder="1. Pertanyaan ...&#10;A. ...&#10;B. ...&#10;C. ...&#10;D. ...&#10;Jawaban: B&#10;Pembahasan: ..."></textarea></div><button class="btn" id="man" style="font-size:15px;padding:8px 14px">Mulai dengan soal manual</button></details><b>Papan peringkat</b>'+lbHtml()+'<p class="small">A/D atau panah: pindah jalur. Spasi atau Atas: lompat. Shift: lari cepat. P: jeda. 1-4: jawab kuis.</p></div>';
- $('fmat').value=setup.mat||'';$('nm').value=pname==="Pelari"?"":pname;
- $('mt').onclick=()=>{const f=form(true),t=$('fmat').value.trim();if(t.length<40){say("Tempel materi terlebih dahulu (minimal 40 karakter).");return}
-  const l=genMateri(t,30);if(l.length<5){say("Materi belum cukup untuk membuat minimal 5 soal pilihan ganda yang valid. Tambahkan beberapa paragraf atau daftar minimal 4 istilah beserta pengertiannya. Generator hanya memakai informasi dari materi.");return}
-  f.n=l.length;startWith(l,f)};
- $('man').onclick=()=>{const f=form(true),l=parseAny($('mq').value);if(!l.length){say("Soal tidak terbaca. Periksa formatnya.");return}if(l.length<10){say("Soal terbaca "+l.length+". Minimal 10 soal.");return}f.n=Math.min(30,l.length);startWith(l.slice(0,30),f)}}
+function encodeGameCode(list,f){
+ const payload={v:1,setup:{mapel:f.mapel||"Umum",topik:f.topik||"Materi"},questions:list};
+ return btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');
+}
+function decodeGameCode(code){
+ try{
+  const b=code.trim().replace(/-/g,'+').replace(/_/g,'/'),raw=decodeURIComponent(escape(atob(b+'='.repeat((4-b.length%4)%4))));
+  const p=JSON.parse(raw);
+  if(p.v!==1||!Array.isArray(p.questions)||p.questions.length<5||p.questions.length>30||!p.questions.every(ok4))return null;
+  return p;
+ }catch(e){return null}
+}
+function menu(){
+ st='menu';const o=$('ov');o.style.display='flex';
+ o.innerHTML='<div class="card"><h1>EDU SPRINT</h1><h2>Race to Knowledge</h2><p class="small">Balapan seru untuk menguji pengetahuanmu!</p><button class="btn" id="teacherMode">MODE GURU</button><br><button class="btn" id="studentMode" style="background:#3b73d6;box-shadow:0 4px 0 #1f4a99">MODE SISWA</button><div id="gs" class="small" style="min-height:24px;margin-top:10px"></div><p class="small">A/D atau panah: pindah jalur. Spasi atau Atas: lompat. Shift: lari cepat. P: jeda.</p></div>';
+ $('teacherMode').onclick=teacherMenu;$('studentMode').onclick=studentMenu;
+}
+function teacherMenu(){
+ const o=$('ov');o.style.display='flex';
+ o.innerHTML='<div class="card"><h1>MODE GURU</h1><p class="small">Buat soal dari materi atau masukkan soal sendiri. Setelah itu, bagikan kode permainan kepada siswa.</p><div class="frm"><label>Materi pelajaran<textarea id="fmat" rows="6" maxlength="20000" placeholder="Tempel materi pelajaran di sini. Untuk hasil terbaik, gunakan daftar istilah dan pengertian atau materi dengan beberapa paragraf."></textarea></label><label>Nama guru (opsional)<input id="nm" maxlength="12" placeholder="Nama"></label></div><button class="btn" id="makeCode">Buat Kode Permainan</button><details><summary>Masukkan soal sendiri</summary><p class="small">Masukkan minimal 5 soal. Format: pertanyaan, opsi A-D, Jawaban: B, dan Pembahasan: ...</p><textarea id="mq" rows="7" placeholder="1. Pertanyaan...&#10;A. ...&#10;B. ...&#10;C. ...&#10;D. ...&#10;Jawaban: B&#10;Pembahasan: ..."></textarea><button class="btn" id="manualCode">Buat kode dari soal manual</button></details><div id="gs" class="small" style="min-height:24px"></div><div id="shareArea"></div><button class="btn" id="backHome" style="background:#3b73d6;box-shadow:0 4px 0 #1f4a99">Kembali</button></div>';
+ $('fmat').value=setup.mat||'';
+ const showCode=(list,f)=>{
+  const code=encodeGameCode(list,f);
+  $('shareArea').innerHTML='<p><b>Kode permainan siap dibagikan!</b></p><textarea id="gameCode" rows="5" readonly style="width:100%;box-sizing:border-box;font-size:13px"></textarea><button class="btn" id="copyCode">Salin Kode</button><p class="small">Bagikan kode ini kepada siswa. Siswa membuka MODE SISWA lalu menempelkan kode tersebut.</p>';
+  $('gameCode').value=code;
+  $('copyCode').onclick=async()=>{try{await navigator.clipboard.writeText(code);say('Kode berhasil disalin.');}catch(e){$('gameCode').focus();$('gameCode').select();say('Pilih dan salin kode secara manual.')}};
+ };
+ $('makeCode').onclick=()=>{
+  const t=$('fmat').value.trim(),f={mapel:"Umum",jenjang:"Sesuai materi",topik:"Materi pelajaran",tujuan:"Memahami materi",n:30,mat:t,code:""};
+  if(t.length<40){say('Tempel materi terlebih dahulu (minimal 40 karakter).');return}
+  const list=genMateri(t,30);
+  if(list.length<5){say('Materi belum cukup menghasilkan 5 soal valid. Tambahkan materi atau gunakan input soal manual.');return}
+  f.n=list.length;showCode(list,f);say(list.length+' soal berhasil dibuat.');
+ };
+ $('manualCode').onclick=()=>{
+  const f={mapel:"Umum",jenjang:"Sesuai materi",topik:"Soal dari guru",tujuan:"Mengukur pemahaman",n:30,mat:"",code:""};
+  const list=parseAny($('mq').value);
+  if(list.length<5){say('Soal terbaca '+list.length+'. Minimal 5 soal dengan format yang benar.');return}
+  f.n=Math.min(30,list.length);showCode(list.slice(0,30),f);say(f.n+' soal siap dibagikan.');
+ };
+ $('backHome').onclick=menu;
+}
+function studentMenu(){
+ const o=$('ov');o.style.display='flex';
+ o.innerHTML='<div class="card"><h1>MODE SISWA</h1><p>Masukkan kode permainan dari guru dan nama kamu.</p><div class="frm"><label>Kode permainan<textarea id="studentCode" rows="5" placeholder="Tempel kode permainan dari guru di sini"></textarea></label><label>Nama siswa<input id="studentName" maxlength="12" placeholder="Nama kamu"></label></div><button class="btn" id="joinGame">Mulai Bermain</button><div id="gs" class="small" style="min-height:24px"></div><button class="btn" id="backHome" style="background:#3b73d6;box-shadow:0 4px 0 #1f4a99">Kembali</button></div>';
+ $('joinGame').onclick=()=>{
+  const p=decodeGameCode($('studentCode').value);
+  if(!p){say('Kode tidak valid. Periksa kembali kode dari guru.');return}
+  pname=($('studentName').value.trim()||'Pelari').slice(0,12);
+  const f={mapel:p.setup.mapel||'Umum',jenjang:'Siswa',topik:p.setup.topik||'Materi',tujuan:'',n:p.questions.length,mat:'',code:''};
+  startWith(p.questions,f);
+ };
+ $('backHome').onclick=menu;
+}
 function begin(snap){reset();for(const k in keys)keys[k]=false;tSpr=false;$('ov').style.display='none';st='count';cd=3.4;if(snap===true){cam.position.set(0,3.4,7.2);cam.fov=62;cam.updateProjectionMatrix()}}
 function reset(){dist=0;lane=1;px=0;py=0;vy=0;score=0;coins=0;combo=0;mult=1;shield=false;energy=100;boost=0;inv=0;stum=0;speed=0;time=0;cpIdx=0;correct=0;shown=false;
  opps.forEach(o=>{o.d=0;o.v=0});build();qs=CFG.questions.slice();pk.root.visible=true}
